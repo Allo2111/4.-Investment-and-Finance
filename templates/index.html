@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Portfolio Intelligence Engine</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -40,29 +41,19 @@
       gap: 12px;
     }
 
-    .header-icon {
-      font-size: 22px;
-    }
+    .header-icon { font-size: 22px; }
 
-    .header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .header h1 { font-size: 18px; font-weight: 600; }
 
-    .header p {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
+    .header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
     .layout {
       display: grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 340px 1fr;
       height: calc(100vh - 65px);
     }
 
-    /* LEFT PANEL */
+    /* SIDEBAR */
     .sidebar {
       background: var(--surface);
       border-right: 1px solid var(--border);
@@ -133,7 +124,7 @@
 
     .holding-row {
       display: grid;
-      grid-template-columns: 1fr 90px 32px;
+      grid-template-columns: 1fr 80px 32px;
       gap: 8px;
       align-items: center;
     }
@@ -150,14 +141,9 @@
       transition: border-color 0.15s;
     }
 
-    input[type="text"]:focus, input[type="number"]:focus {
-      border-color: var(--accent);
-    }
-
+    input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); }
     input[type="text"]::placeholder { color: var(--muted); }
-
     .ticker-input { text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
-
     .weight-input { text-align: right; }
 
     .remove-btn {
@@ -206,27 +192,15 @@
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
-      letter-spacing: 0.02em;
     }
 
-    .analyze-btn:hover:not(:disabled) {
-      background: #79c0ff;
-    }
+    .analyze-btn:hover:not(:disabled) { background: #79c0ff; }
 
-    .analyze-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+    .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .presets {
-      margin-bottom: 20px;
-    }
+    .presets { margin-bottom: 20px; }
 
-    .presets-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
+    .presets-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .preset-chip {
       background: var(--surface2);
@@ -239,12 +213,9 @@
       transition: all 0.15s;
     }
 
-    .preset-chip:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+    .preset-chip:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* RIGHT PANEL */
+    /* MAIN */
     .main {
       display: flex;
       flex-direction: column;
@@ -275,41 +246,121 @@
     .result-content { display: none; }
     .result-content.visible { display: block; }
 
-    /* Markdown styling */
-    .md-output h3 {
-      font-size: 15px;
-      font-weight: 700;
-      margin: 28px 0 12px;
-      padding-bottom: 8px;
+    /* Metrics table */
+    .metrics-section { margin-bottom: 28px; }
+
+    .metrics-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .metrics-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .metrics-table th {
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .metrics-table td {
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
       color: var(--text);
     }
 
+    .metrics-table tr:last-child td { border-bottom: none; }
+
+    .metrics-table tr:hover td { background: var(--surface2); }
+
+    .ticker-badge {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+
+    .positive { color: var(--accent2); }
+    .negative { color: var(--danger); }
+
+    .beta-high { color: var(--danger); }
+    .beta-low { color: var(--accent2); }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .chart-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* Divider between data and LLM */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 24px;
+    }
+
+    .section-divider hr {
+      flex: 1;
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-divider span {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    /* Markdown */
+    .md-output h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 24px 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
     .md-output h3:first-child { margin-top: 0; }
 
-    .md-output p {
-      color: #cdd9e5;
-      margin-bottom: 10px;
-      line-height: 1.7;
-    }
+    .md-output p { color: #cdd9e5; margin-bottom: 10px; line-height: 1.7; }
 
-    .md-output ul, .md-output ol {
-      padding-left: 20px;
-      margin-bottom: 10px;
-    }
+    .md-output ul, .md-output ol { padding-left: 20px; margin-bottom: 10px; }
 
-    .md-output li {
-      color: #cdd9e5;
-      margin-bottom: 4px;
-      line-height: 1.6;
-    }
+    .md-output li { color: #cdd9e5; margin-bottom: 4px; line-height: 1.6; }
 
-    .md-output strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .md-output em { color: var(--muted); }
+    .md-output strong { color: var(--text); font-weight: 600; }
 
     .md-output code {
       background: var(--surface2);
@@ -317,14 +368,7 @@
       border-radius: 4px;
       padding: 1px 5px;
       font-size: 12px;
-      font-family: 'Cascadia Code', 'Fira Code', monospace;
       color: var(--accent);
-    }
-
-    .md-output hr {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 20px 0;
     }
 
     .typing-cursor {
@@ -380,7 +424,6 @@
       margin-bottom: 16px;
     }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -393,13 +436,12 @@
   <span class="header-icon">📊</span>
   <div>
     <h1>Portfolio Intelligence Engine</h1>
-    <p>Structural analysis · Correlation risk · Factor exposure · Gap detection</p>
+    <p>Real market data · Correlation matrix · Factor exposure · AI interpretation</p>
   </div>
 </header>
 
 <div class="layout">
 
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-inner">
 
@@ -424,30 +466,57 @@
       </div>
 
       <div class="section-label">Holdings</div>
-
       <div class="holdings-list" id="holdings-list"></div>
-
       <button class="add-btn" onclick="addRow()">+ Add holding</button>
-
-      <button class="analyze-btn" id="analyze-btn" onclick="analyze()" disabled>
-        Run Analysis
-      </button>
+      <button class="analyze-btn" id="analyze-btn" onclick="analyze()" disabled>Run Analysis</button>
 
     </div>
   </aside>
 
-  <!-- MAIN -->
   <main class="main">
     <div class="results-area" id="results-area">
 
       <div class="empty-state" id="empty-state">
         <div class="empty-icon">🔬</div>
         <h2>No portfolio loaded</h2>
-        <p>Add your holdings on the left and click Run Analysis to get a full diagnostic report.</p>
+        <p>Add your holdings on the left and click Run Analysis to get a full diagnostic report using real market data.</p>
       </div>
 
       <div class="result-content" id="result-content">
         <div class="error-banner" id="error-banner" style="display:none"></div>
+
+        <!-- Real data section -->
+        <div id="data-section" style="display:none">
+          <div class="metrics-section">
+            <div class="metrics-title">Holdings Metrics (1 Year)</div>
+            <table class="metrics-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Weight</th>
+                  <th>Sector</th>
+                  <th>Volatility/yr</th>
+                  <th>Beta (vs SPY)</th>
+                  <th>1Y Return</th>
+                </tr>
+              </thead>
+              <tbody id="metrics-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="charts-row">
+            <div class="chart-card">
+              <div class="chart-title">Correlation Matrix</div>
+              <div id="corr-chart"></div>
+            </div>
+          </div>
+
+          <div class="section-divider">
+            <hr /><span>AI Interpretation</span><hr />
+          </div>
+        </div>
+
+        <!-- LLM section -->
         <div class="md-output" id="md-output"></div>
       </div>
 
@@ -513,9 +582,7 @@
     rows.forEach(row => {
       const ticker = row.querySelector('.ticker-input').value.trim();
       const weight = parseFloat(row.querySelector('.weight-input').value);
-      if (ticker && !isNaN(weight) && weight > 0) {
-        result.push({ ticker, weight });
-      }
+      if (ticker && !isNaN(weight) && weight > 0) result.push({ ticker, weight });
     });
     return result;
   }
@@ -537,90 +604,13 @@
   function loadPreset(name) {
     document.getElementById('holdings-list').innerHTML = '';
     rowId = 0;
-    const rows = PRESETS[name] || [];
-    rows.forEach(r => addRow(r.ticker, r.weight));
+    (PRESETS[name] || []).forEach(r => addRow(r.ticker, r.weight));
     updateTotal();
   }
 
-  let currentStream = null;
-  let rawMarkdown = '';
-
-  async function analyze() {
-    const holdings = getHoldings();
-    if (holdings.length < 2) return;
-
-    if (currentStream) { currentStream.abort(); }
-
-    rawMarkdown = '';
-    document.getElementById('empty-state').style.display = 'none';
-    document.getElementById('result-content').classList.add('visible');
-    document.getElementById('error-banner').style.display = 'none';
-    document.getElementById('md-output').innerHTML = '';
-
-    setStatus('running', 'Analyzing portfolio...');
-
-    const ctrl = new AbortController();
-    currentStream = ctrl;
-
-    try {
-      const res = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdings }),
-        signal: ctrl.signal,
-      });
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') {
-            renderFinal();
-            setStatus('ready', 'Analysis complete');
-            return;
-          }
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              showError(parsed.error);
-              setStatus('ready', 'Error');
-              return;
-            }
-            if (parsed.text) {
-              rawMarkdown += parsed.text;
-              renderStreaming();
-            }
-          } catch {}
-        }
-      }
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        showError(e.message);
-        setStatus('ready', 'Error');
-      }
-    }
-  }
-
-  function renderStreaming() {
-    const el = document.getElementById('md-output');
-    el.innerHTML = marked.parse(rawMarkdown) + '<span class="typing-cursor"></span>';
-    el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }
-
-  function renderFinal() {
-    const el = document.getElementById('md-output');
-    el.innerHTML = marked.parse(rawMarkdown);
+  function setStatus(state, text) {
+    document.getElementById('status-dot').className = 'status-dot' + (state === 'running' ? ' running' : '');
+    document.getElementById('status-text').textContent = text;
   }
 
   function showError(msg) {
@@ -631,12 +621,163 @@
     document.getElementById('empty-state').style.display = 'none';
   }
 
-  function setStatus(state, text) {
-    document.getElementById('status-dot').className = 'status-dot' + (state === 'running' ? ' running' : '');
-    document.getElementById('status-text').textContent = text;
+  function renderMetricsTable(holdings, metrics) {
+    const weights = {};
+    holdings.forEach(h => weights[h.ticker] = h.weight);
+
+    const tbody = document.getElementById('metrics-tbody');
+    tbody.innerHTML = '';
+    (metrics.tickers || []).forEach(ticker => {
+      const vol = metrics.volatility?.[ticker];
+      const beta = metrics.betas?.[ticker];
+      const ret = metrics.one_year_returns?.[ticker];
+      const sector = metrics.sectors?.[ticker] || '—';
+
+      const retClass = ret > 0 ? 'positive' : ret < 0 ? 'negative' : '';
+      const betaClass = beta > 1.3 ? 'beta-high' : beta < 0.7 ? 'beta-low' : '';
+
+      tbody.innerHTML += `
+        <tr>
+          <td><span class="ticker-badge">${ticker}</span></td>
+          <td>${weights[ticker] ?? '—'}%</td>
+          <td>${sector}</td>
+          <td>${vol != null ? vol + '%' : '—'}</td>
+          <td class="${betaClass}">${beta != null ? beta : '—'}</td>
+          <td class="${retClass}">${ret != null ? (ret > 0 ? '+' : '') + ret + '%' : '—'}</td>
+        </tr>`;
+    });
   }
 
-  // Init with a default
+  function renderCorrelationChart(metrics) {
+    const tickers = metrics.tickers || [];
+    const corr = metrics.correlation || {};
+
+    const z = tickers.map(t1 => tickers.map(t2 => corr[t1]?.[t2] ?? null));
+    const text = z.map(row => row.map(v => v != null ? v.toFixed(2) : ''));
+
+    Plotly.newPlot('corr-chart', [{
+      type: 'heatmap',
+      z,
+      x: tickers,
+      y: tickers,
+      text,
+      texttemplate: '%{text}',
+      colorscale: [
+        [0, '#1a7f3c'], [0.5, '#1c2333'], [1, '#da3633']
+      ],
+      zmin: -1,
+      zmax: 1,
+      showscale: true,
+      colorbar: {
+        thickness: 12,
+        tickfont: { color: '#8b949e', size: 11 },
+        bgcolor: 'transparent',
+        bordercolor: '#30363d',
+      },
+    }], {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#e6edf3', size: 12 },
+      margin: { t: 10, b: 40, l: 60, r: 20 },
+      xaxis: { tickfont: { color: '#8b949e' }, gridcolor: '#30363d' },
+      yaxis: { tickfont: { color: '#8b949e' }, gridcolor: '#30363d' },
+      height: Math.max(260, tickers.length * 48),
+    }, { responsive: true, displayModeBar: false });
+  }
+
+  let currentStream = null;
+  let rawMarkdown = '';
+
+  async function analyze() {
+    const holdings = getHoldings();
+    if (holdings.length < 2) return;
+
+    if (currentStream) currentStream.abort();
+    currentStream = null;
+    rawMarkdown = '';
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('result-content').classList.add('visible');
+    document.getElementById('error-banner').style.display = 'none';
+    document.getElementById('data-section').style.display = 'none';
+    document.getElementById('md-output').innerHTML = '';
+    document.getElementById('analyze-btn').disabled = true;
+
+    // Step 1: fetch real market data
+    setStatus('running', 'Fetching market data...');
+
+    let metrics;
+    try {
+      const res = await fetch('/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ holdings }),
+      });
+      const json = await res.json();
+      if (json.error) { showError(json.error); setStatus('ready', 'Error'); document.getElementById('analyze-btn').disabled = false; return; }
+      metrics = json;
+    } catch (e) {
+      showError(e.message);
+      setStatus('ready', 'Error');
+      document.getElementById('analyze-btn').disabled = false;
+      return;
+    }
+
+    // Render charts
+    renderMetricsTable(holdings, metrics);
+    renderCorrelationChart(metrics);
+    document.getElementById('data-section').style.display = 'block';
+
+    // Step 2: stream AI interpretation
+    setStatus('running', 'Running AI interpretation...');
+
+    const ctrl = new AbortController();
+    currentStream = ctrl;
+
+    try {
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ holdings, metrics }),
+        signal: ctrl.signal,
+      });
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') {
+            document.getElementById('md-output').innerHTML = marked.parse(rawMarkdown);
+            setStatus('ready', 'Analysis complete');
+            document.getElementById('analyze-btn').disabled = false;
+            return;
+          }
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) { showError(parsed.error); setStatus('ready', 'Error'); document.getElementById('analyze-btn').disabled = false; return; }
+            if (parsed.text) {
+              rawMarkdown += parsed.text;
+              document.getElementById('md-output').innerHTML = marked.parse(rawMarkdown) + '<span class="typing-cursor"></span>';
+            }
+          } catch {}
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') { showError(e.message); setStatus('ready', 'Error'); }
+      document.getElementById('analyze-btn').disabled = false;
+    }
+  }
+
   loadPreset('mag7');
 </script>
 
