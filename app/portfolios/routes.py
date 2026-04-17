@@ -50,8 +50,10 @@ def detail(portfolio_id):
     holdings = p.asset_holdings.all()
     runs     = p.analysis_runs.limit(10).all()
     totals   = _compute_totals(holdings)
+    allocation = _compute_allocation(holdings)
     return render_template('portfolios/detail.html',
-                           portfolio=p, holdings=holdings, runs=runs, totals=totals)
+                           portfolio=p, holdings=holdings, runs=runs,
+                           totals=totals, allocation=allocation)
 
 
 @portfolios_bp.route('/portfolios/<int:portfolio_id>/edit', methods=['GET', 'POST'])
@@ -216,6 +218,32 @@ def _fetch_and_store_price(holding: AssetHolding) -> None:
         holding.current_price = price
         if holding.quantity:
             holding.market_value = round(holding.quantity * price, 2)
+
+
+def _compute_allocation(holdings):
+    """Return a list of {label, cls, value} dicts for the pie chart, sorted by value desc.
+    Liabilities are included as a separate negative-value slice."""
+    from collections import defaultdict
+    buckets: dict[str, dict] = defaultdict(lambda: {'value': 0.0, 'cls': ''})
+    liability_total = 0.0
+    for h in holdings:
+        v = h.effective_value
+        if not v:
+            continue
+        if h.is_liability:
+            liability_total += v
+        else:
+            key = h.asset_class_label
+            buckets[key]['value'] += v
+            buckets[key]['cls']    = h.asset_class
+    result = [
+        {'label': k, 'value': round(v['value'], 2), 'cls': v['cls']}
+        for k, v in buckets.items()
+    ]
+    result.sort(key=lambda x: x['value'], reverse=True)
+    if liability_total:
+        result.append({'label': 'Liabilities', 'value': round(liability_total, 2), 'cls': 'liability'})
+    return result
 
 
 def _compute_totals(holdings):
