@@ -1,0 +1,9 @@
+run = "gunicorn app:app --bind 0.0.0.0:5000 --workers 2"
+
+[deployment]
+run = ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:5000 --workers 2"]
+deploymentTarget = "autoscale"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
