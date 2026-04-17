@@ -1,0 +1,491 @@
+{% extends 'base.html' %}
+{% block title %}{{ portfolio.name }} — Portfolio Engine{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    /* ── Layout ── */
+    .port-header { background:var(--surface); border-bottom:1px solid var(--border);
+                   padding:16px 28px; display:flex; justify-content:space-between; align-items:center; }
+    .port-title  { font-size:20px; font-weight:700; }
+    .port-meta   { font-size:12px; color:var(--muted); margin-top:3px; }
+    .two-col     { display:grid; grid-template-columns:1fr 380px; gap:0;
+                   height:calc(100vh - 52px - 65px); overflow:hidden; }
+    .holdings-panel { padding:24px 28px; overflow-y:auto; border-right:1px solid var(--border); }
+    .analysis-panel { padding:20px; overflow-y:auto; background:var(--surface); }
+
+    /* ── Value summary bar ── */
+    .value-bar { display:flex; gap:20px; background:var(--surface2); border:1px solid var(--border);
+                 border-radius:var(--radius); padding:12px 16px; margin-bottom:20px; flex-wrap:wrap; }
+    .value-item { display:flex; flex-direction:column; gap:2px; }
+    .value-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+    .value-amount { font-size:15px; font-weight:700; }
+
+    /* ── Holdings table ── */
+    .holdings-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .section-title { font-size:13px; font-weight:700; text-transform:uppercase;
+                     letter-spacing:.06em; color:var(--muted); }
+    .hld-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .hld-table th { text-align:left; padding:7px 8px; color:var(--muted); font-size:11px;
+                    font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+                    border-bottom:1px solid var(--border); white-space:nowrap; }
+    .hld-table td { padding:9px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .hld-table tr:last-child td { border-bottom:none; }
+    .hld-table tr:hover td { background:var(--surface2); }
+    .cls-badge { display:inline-block; padding:2px 7px; border-radius:99px; font-size:10px;
+                 font-weight:600; white-space:nowrap; }
+    .cls-equity          { background:rgba(88,166,255,.15);  color:#58a6ff; }
+    .cls-etf             { background:rgba(88,166,255,.10);  color:#79c0ff; }
+    .cls-cash            { background:rgba(63,185,80,.15);   color:#3fb950; }
+    .cls-bond            { background:rgba(240,136,62,.15);  color:#f0883e; }
+    .cls-real_estate     { background:rgba(188,140,255,.15); color:#bc8cff; }
+    .cls-commodity       { background:rgba(240,220,80,.15);  color:#e3b341; }
+    .cls-private_business{ background:rgba(255,123,114,.15); color:#ff7b72; }
+    .cls-retirement      { background:rgba(118,208,235,.15); color:#76d0eb; }
+    .cls-liability       { background:rgba(248,81,73,.15);   color:#f85149; }
+    .cls-other           { background:var(--surface2);        color:var(--muted); }
+    .weight-bar-wrap { display:flex; align-items:center; gap:6px; min-width:80px; }
+    .weight-bar { height:4px; background:var(--accent); border-radius:2px; min-width:2px; }
+    .weight-bar.liability { background:var(--danger); }
+    .action-link { color:var(--muted); text-decoration:none; font-size:12px;
+                   padding:3px 6px; border-radius:4px; transition:all .15s; }
+    .action-link:hover { color:var(--accent); background:rgba(88,166,255,.08); }
+    .empty-holdings { text-align:center; padding:48px 0; color:var(--muted); }
+
+    /* ── Analysis panel ── */
+    .analyze-btn { width:100%; padding:11px; background:var(--accent); border:none;
+                   border-radius:var(--radius); color:#0d1117; font-size:14px;
+                   font-weight:700; cursor:pointer; transition:all .15s; margin-bottom:6px; }
+    .analyze-btn:hover:not(:disabled) { background:#79c0ff; }
+    .analyze-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .refresh-btn { width:100%; padding:7px; background:transparent;
+                   border:1px solid var(--border); border-radius:var(--radius);
+                   color:var(--muted); font-size:12px; cursor:pointer;
+                   transition:all .15s; margin-bottom:14px; }
+    .refresh-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+    .analysis-note { font-size:11px; color:var(--muted); margin-bottom:14px; line-height:1.5; }
+    .status-row { display:flex; align-items:center; gap:6px; font-size:12px;
+                  color:var(--muted); margin-bottom:12px; }
+    .status-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+    .status-dot.running { background:var(--accent2); animation:pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .error-banner { background:rgba(248,81,73,.1); border:1px solid rgba(248,81,73,.3);
+                    border-radius:var(--radius); padding:10px 12px; color:var(--danger);
+                    font-size:12px; margin-bottom:12px; }
+    .chart-card { background:var(--bg); border:1px solid var(--border);
+                  border-radius:var(--radius); padding:12px; margin-bottom:14px; }
+    .chart-title { font-size:10px; font-weight:600; text-transform:uppercase;
+                   letter-spacing:.08em; color:var(--muted); margin-bottom:8px; }
+    .md-output h3 { font-size:13px; font-weight:700; margin:16px 0 6px;
+                    padding-bottom:5px; border-bottom:1px solid var(--border); }
+    .md-output h3:first-child { margin-top:0; }
+    .md-output p  { color:#cdd9e5; margin-bottom:6px; line-height:1.7; font-size:13px; }
+    .md-output ul, .md-output ol { padding-left:18px; margin-bottom:6px; }
+    .md-output li { color:#cdd9e5; margin-bottom:2px; font-size:13px; line-height:1.6; }
+    .md-output strong { color:var(--text); }
+    .typing-cursor { display:inline-block; width:2px; height:12px; background:var(--accent);
+                     margin-left:2px; vertical-align:middle; animation:blink .8s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .history-item { display:flex; align-items:center; gap:8px; padding:7px 0;
+                    border-bottom:1px solid var(--border); font-size:12px; }
+    .history-item:last-child { border-bottom:none; }
+    .divider { border-top:1px solid var(--border); margin:14px 0; }
+
+    /* ── Responsive ── */
+    @media (max-width:900px) {
+      .two-col { grid-template-columns:1fr; height:auto; }
+      .analysis-panel { border-top:1px solid var(--border); }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Portfolio header -->
+<div class="port-header">
+  <div>
+    <div class="port-title">{{ portfolio.name }}</div>
+    <div class="port-meta">
+      {{ portfolio.base_currency }}
+      {% if portfolio.description %} · {{ portfolio.description }}{% endif %}
+    </div>
+  </div>
+  <div class="flex" style="gap:8px;">
+    <a href="{{ url_for('portfolios.edit_portfolio', portfolio_id=portfolio.id) }}"
+       class="btn btn-secondary btn-sm">Edit</a>
+    <a href="{{ url_for('portfolios.list_portfolios') }}"
+       class="btn btn-secondary btn-sm">← Portfolios</a>
+  </div>
+</div>
+
+<div class="two-col">
+
+  <!-- ── LEFT: Holdings ────────────────────────────────── -->
+  <div class="holdings-panel">
+
+    <!-- Value summary -->
+    <div class="value-bar">
+      <div class="value-item">
+        <span class="value-label">Gross Assets</span>
+        <span class="value-amount text-accent" id="gross-value">
+          {{ portfolio.base_currency }} {{ '{:,.0f}'.format(totals.gross) if totals.gross else '—' }}
+        </span>
+      </div>
+      <div class="value-item">
+        <span class="value-label">Liabilities</span>
+        <span class="value-amount text-danger" id="liability-value">
+          {% if totals.liabilities %}−{{ '{:,.0f}'.format(totals.liabilities) }}{% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="value-item">
+        <span class="value-label">Net Worth</span>
+        <span class="value-amount text-success" id="net-value">
+          {{ portfolio.base_currency }} {{ '{:,.0f}'.format(totals.net) if totals.net else '—' }}
+        </span>
+      </div>
+      <div class="value-item">
+        <span class="value-label">Holdings</span>
+        <span class="value-amount">{{ totals.count }}</span>
+      </div>
+    </div>
+
+    <!-- Holdings table header -->
+    <div class="holdings-header">
+      <span class="section-title">Holdings</span>
+      <a href="{{ url_for('portfolios.add_holding', portfolio_id=portfolio.id) }}"
+         class="btn btn-primary btn-sm">+ Add Holding</a>
+    </div>
+
+    {% if holdings %}
+      <table class="hld-table">
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Name</th>
+            <th>Qty / Value</th>
+            <th>Price</th>
+            <th>Mkt Value</th>
+            <th>Weight</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set net = totals.net if totals.net > 0 else 1 %}
+          {% for h in holdings %}
+            {% set val = h.effective_value %}
+            {% set pct = (val / totals.gross * 100) if (val and totals.gross) else 0 %}
+            <tr>
+              <td>
+                <span class="cls-badge cls-{{ h.asset_class }}">
+                  {{ h.asset_class_label }}
+                </span>
+              </td>
+              <td>
+                <div style="font-weight:600;">
+                  {{ h.symbol if h.symbol else '' }}
+                  {% if h.symbol and h.name and h.symbol != h.name %}
+                    <span class="text-muted" style="font-weight:400;"> {{ h.name }}</span>
+                  {% elif not h.symbol %}
+                    {{ h.name }}
+                  {% endif %}
+                </div>
+                {% if h.geography %}
+                  <div class="text-muted" style="font-size:11px;">{{ h.geography }}</div>
+                {% endif %}
+              </td>
+              <td class="text-muted">
+                {% if h.is_listed and h.quantity %}
+                  {{ '{:,.2f}'.format(h.quantity) }} shares
+                {% elif h.manual_value %}
+                  {{ h.currency }} {{ '{:,.0f}'.format(h.manual_value) }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="text-muted" id="price-{{ h.id }}">
+                {% if h.current_price %}
+                  {{ h.currency }} {{ '{:,.2f}'.format(h.current_price) }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td id="val-{{ h.id }}">
+                {% if val %}
+                  <span class="{{ 'text-danger' if h.is_liability else '' }}">
+                    {{ h.currency }} {{ '{:,.0f}'.format(val) }}
+                  </span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td id="wt-{{ h.id }}">
+                {% if val and totals.gross %}
+                  <div class="weight-bar-wrap">
+                    <div class="weight-bar {{ 'liability' if h.is_liability else '' }}"
+                         style="width:{{ [pct * 1.5, 60]|min }}px"></div>
+                    <span style="font-size:12px; color:var(--muted);">
+                      {{ '{:.1f}'.format(pct) }}%
+                    </span>
+                  </div>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td style="text-align:right; white-space:nowrap;">
+                <a href="{{ url_for('portfolios.edit_holding', holding_id=h.id) }}"
+                   class="action-link">Edit</a>
+              </td>
+            </tr>
+            {% if h.notes %}
+              <tr>
+                <td></td>
+                <td colspan="6" style="padding-top:0; padding-bottom:8px;">
+                  <span class="text-muted" style="font-size:11px; font-style:italic;">
+                    {{ h.notes }}
+                  </span>
+                </td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-holdings">
+        <div style="font-size:40px; margin-bottom:12px; opacity:.4;">📂</div>
+        <div style="font-weight:600; margin-bottom:8px;">No holdings yet</div>
+        <div style="font-size:13px; margin-bottom:16px;">
+          Add equities, cash, real estate, and other assets.
+        </div>
+        <a href="{{ url_for('portfolios.add_holding', portfolio_id=portfolio.id) }}"
+           class="btn btn-primary">+ Add First Holding</a>
+      </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ── RIGHT: Analysis panel ─────────────────────────── -->
+  <div class="analysis-panel">
+
+    <div style="margin-bottom:14px;">
+      <div class="section-title" style="margin-bottom:10px;">Analysis</div>
+      <button class="analyze-btn" id="analyze-btn" onclick="runAnalysis()">
+        Run Analysis
+      </button>
+      <button class="refresh-btn" id="refresh-btn" onclick="refreshPrices()">
+        Refresh Prices
+      </button>
+      <div class="analysis-note">
+        Runs on listed equity / ETF holdings. Prices are fetched live.
+        Non-listed assets are summarised as context for the AI.
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-row">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Ready</span>
+    </div>
+
+    <!-- Error -->
+    <div class="error-banner" id="error-banner" style="display:none"></div>
+
+    <!-- Correlation chart (shown after analysis) -->
+    <div id="chart-section" style="display:none">
+      <div class="chart-card">
+        <div class="chart-title">Correlation Matrix</div>
+        <div id="corr-chart"></div>
+      </div>
+    </div>
+
+    <!-- AI output -->
+    <div class="md-output" id="md-output"></div>
+
+    <!-- Link to saved report -->
+    <div id="run-link" style="display:none; margin-top:10px; font-size:12px; color:var(--muted);">
+      Saved · <a class="text-accent" id="run-link-anchor" style="text-decoration:none;">
+        View full report →
+      </a>
+    </div>
+
+    <!-- History -->
+    {% if runs %}
+      <div class="divider"></div>
+      <div class="section-title" style="margin-bottom:10px;">Past Analyses</div>
+      {% for run in runs %}
+        <div class="history-item">
+          <span class="badge
+            {% if run.status == 'complete' %}badge-success
+            {% elif run.status == 'failed'  %}badge-danger
+            {% else %}badge-muted{% endif %}">
+            {{ run.status }}
+          </span>
+          <span class="text-muted">{{ run.created_at.strftime('%b %d %H:%M') }}</span>
+          <a href="{{ url_for('analysis.detail', run_id=run.id) }}"
+             class="text-accent" style="margin-left:auto; text-decoration:none;">
+            View →
+          </a>
+        </div>
+      {% endfor %}
+      <div style="margin-top:8px;">
+        <a href="{{ url_for('analysis.history', portfolio_id=portfolio.id) }}"
+           class="text-muted" style="font-size:12px; text-decoration:none;">
+          Full history →
+        </a>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  const PORTFOLIO_ID = {{ portfolio.id }};
+  const CSRF = '{{ csrf_token() }}';
+
+  let rawMarkdown = '';
+  let currentStream = null;
+
+  function setStatus(running, text) {
+    document.getElementById('status-dot').className = 'status-dot' + (running ? ' running' : '');
+    document.getElementById('status-text').textContent = text;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-banner');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('error-banner').style.display = 'none';
+  }
+
+  function renderCorrelationChart(metrics) {
+    const tickers = metrics.tickers || [];
+    const corr = metrics.correlation || {};
+    const z = tickers.map(t1 => tickers.map(t2 => corr[t1]?.[t2] ?? null));
+    const text = z.map(row => row.map(v => v != null ? v.toFixed(2) : ''));
+    Plotly.newPlot('corr-chart', [{
+      type: 'heatmap', z, x: tickers, y: tickers, text, texttemplate: '%{text}',
+      colorscale: [[0,'#1a7f3c'],[0.5,'#1c2333'],[1,'#da3633']],
+      zmin: -1, zmax: 1, showscale: true,
+      colorbar: { thickness: 10, tickfont: {color:'#8b949e', size:10},
+                  bgcolor:'transparent', bordercolor:'#30363d' },
+    }], {
+      paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+      font: {color:'#e6edf3', size:11}, margin: {t:6, b:36, l:54, r:10},
+      xaxis: {tickfont:{color:'#8b949e'}, gridcolor:'#30363d'},
+      yaxis: {tickfont:{color:'#8b949e'}, gridcolor:'#30363d'},
+      height: Math.max(220, tickers.length * 42),
+    }, {responsive:true, displayModeBar:false});
+  }
+
+  async function refreshPrices() {
+    document.getElementById('refresh-btn').disabled = true;
+    setStatus(true, 'Refreshing prices...');
+    try {
+      const res = await fetch(`/portfolios/${PORTFOLIO_ID}/refresh-prices`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+      });
+      const data = await res.json();
+      if (data.error) { showError(data.error); }
+      else {
+        setStatus(false, `Updated ${data.updated} price${data.updated !== 1 ? 's' : ''}`);
+        // Reload page to show updated values
+        setTimeout(() => location.reload(), 600);
+      }
+    } catch(e) {
+      showError(e.message);
+      setStatus(false, 'Error');
+    } finally {
+      document.getElementById('refresh-btn').disabled = false;
+    }
+  }
+
+  async function runAnalysis() {
+    if (currentStream) currentStream.abort();
+    currentStream = null;
+    rawMarkdown = '';
+
+    hideError();
+    document.getElementById('md-output').innerHTML = '';
+    document.getElementById('chart-section').style.display = 'none';
+    document.getElementById('run-link').style.display = 'none';
+    document.getElementById('analyze-btn').disabled = true;
+    setStatus(true, 'Fetching prices and market data...');
+
+    const ctrl = new AbortController();
+    currentStream = ctrl;
+
+    try {
+      const res = await fetch(`/portfolios/${PORTFOLIO_ID}/run-analysis`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+        body: JSON.stringify({}),
+        signal: ctrl.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({error: res.statusText}));
+        showError(err.error || 'Analysis failed');
+        setStatus(false, 'Error');
+        document.getElementById('analyze-btn').disabled = false;
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let metricsLoaded = false;
+
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, {stream: true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') {
+            document.getElementById('md-output').innerHTML = marked.parse(rawMarkdown);
+            setStatus(false, 'Analysis complete');
+            document.getElementById('analyze-btn').disabled = false;
+            return;
+          }
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              showError(parsed.error);
+              setStatus(false, 'Error');
+              document.getElementById('analyze-btn').disabled = false;
+              return;
+            }
+            if (!metricsLoaded && parsed.metrics) {
+              renderCorrelationChart(parsed.metrics);
+              document.getElementById('chart-section').style.display = 'block';
+              if (parsed.run_id) {
+                document.getElementById('run-link-anchor').href = `/analyses/${parsed.run_id}`;
+                document.getElementById('run-link').style.display = 'block';
+              }
+              metricsLoaded = true;
+              setStatus(true, 'Running AI interpretation...');
+              continue;
+            }
+            if (parsed.text) {
+              rawMarkdown += parsed.text;
+              document.getElementById('md-output').innerHTML =
+                marked.parse(rawMarkdown) + '<span class="typing-cursor"></span>';
+            }
+          } catch {}
+        }
+      }
+    } catch(e) {
+      if (e.name !== 'AbortError') { showError(e.message); setStatus(false, 'Error'); }
+      document.getElementById('analyze-btn').disabled = false;
+    }
+  }
+</script>
+{% endblock %}

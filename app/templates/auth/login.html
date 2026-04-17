@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Log In — Portfolio Engine{% endblock %}
+
+{% block content %}
+<div style="max-width:400px; margin:80px auto; padding:0 20px;">
+  <div style="text-align:center; margin-bottom:32px;">
+    <div style="font-size:40px; margin-bottom:12px;">📊</div>
+    <h1 style="font-size:22px; font-weight:700;">Portfolio Intelligence Engine</h1>
+    <p class="text-muted" style="margin-top:6px;">Sign in to your account</p>
+  </div>
+
+  <div class="card">
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      <div class="form-group">
+        {{ form.email.label(class='form-label') }}
+        {{ form.email(class='form-control', placeholder='you@example.com') }}
+        {% for err in form.email.errors %}
+          <div class="form-error">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form-group">
+        {{ form.password.label(class='form-label') }}
+        {{ form.password(class='form-control', placeholder='Password') }}
+        {% for err in form.password.errors %}
+          <div class="form-error">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%; padding:10px;">
+        Log In
+      </button>
+    </form>
+  </div>
+
+  <p style="text-align:center; margin-top:16px; font-size:13px; color:var(--muted);">
+    No account? <a href="{{ url_for('auth.signup') }}" class="text-accent">Sign up</a>
+  </p>
+</div>
+{% endblock %}

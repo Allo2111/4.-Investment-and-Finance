@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — Portfolio Engine{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header flex-between">
+    <div>
+      <div class="page-title">Dashboard</div>
+      <div class="page-subtitle">Welcome back, {{ current_user.email }}</div>
+    </div>
+    <a href="{{ url_for('portfolios.new_portfolio') }}" class="btn btn-primary">+ New Portfolio</a>
+  </div>
+
+  {% if portfolios %}
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap:16px;">
+      {% for p in portfolios %}
+        <a href="{{ url_for('portfolios.detail', portfolio_id=p.id) }}"
+           style="text-decoration:none; display:block;">
+          <div class="card" style="cursor:pointer; transition:border-color .15s;"
+               onmouseover="this.style.borderColor='var(--accent)'"
+               onmouseout="this.style.borderColor='var(--border)'">
+            <div class="flex-between" style="margin-bottom:8px;">
+              <span style="font-weight:700; color:var(--text);">{{ p.name }}</span>
+              <span class="badge badge-muted">{{ p.base_currency }}</span>
+            </div>
+            {% if p.description %}
+              <div class="text-muted" style="font-size:12px; margin-bottom:10px;">
+                {{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}
+              </div>
+            {% endif %}
+            <div class="text-muted" style="font-size:12px; display:flex; gap:16px;">
+              <span>{{ p.asset_holdings.count() }} holdings</span>
+              <span>{{ p.analysis_runs.count() }} analyses</span>
+              <span>{{ p.updated_at.strftime('%b %d') }}</span>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card" style="text-align:center; padding:60px 20px;">
+      <div style="font-size:48px; margin-bottom:16px; opacity:.4;">📁</div>
+      <div style="font-size:16px; font-weight:600; margin-bottom:8px;">No portfolios yet</div>
+      <div class="text-muted" style="margin-bottom:20px;">
+        Create your first portfolio to start analysing your holdings.
+      </div>
+      <a href="{{ url_for('portfolios.new_portfolio') }}" class="btn btn-primary">
+        + Create Portfolio
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

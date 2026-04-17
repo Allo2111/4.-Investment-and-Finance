@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} — {{ portfolio.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .field-group { display: none; }
+  .field-group.visible { display: block; }
+  .asset-class-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; background: var(--surface2);
+    color: var(--accent); border: 1px solid var(--border); margin-bottom: 16px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width:580px;">
+  <div class="page-header">
+    <a href="{{ url_for('portfolios.detail', portfolio_id=portfolio.id) }}"
+       class="text-muted" style="font-size:13px; text-decoration:none;">
+      ← {{ portfolio.name }}
+    </a>
+    <div class="page-title" style="margin-top:8px;">{{ title }}</div>
+  </div>
+
+  <div class="card">
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      <!-- Asset class selector — drives which fields are shown -->
+      <div class="form-group">
+        {{ form.asset_class.label(class='form-label') }}
+        {{ form.asset_class(class='form-control', id='asset_class', onchange='updateFields()') }}
+        {% for err in form.asset_class.errors %}
+          <div class="form-error">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Listed fields: shown for equity, etf, bond, commodity -->
+      <div id="group-listed" class="field-group">
+        <div class="form-group">
+          {{ form.symbol.label(class='form-label') }}
+          {{ form.symbol(class='form-control', placeholder='e.g. AAPL, 0700.HK, GLD') }}
+          {% for err in form.symbol.errors %}
+            <div class="form-error">{{ err }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Name: always shown -->
+      <div class="form-group">
+        {{ form.name.label(class='form-label') }}
+        {{ form.name(class='form-control', placeholder='Display name (e.g. Apple Inc, Hong Kong Apartment)') }}
+        {% for err in form.name.errors %}
+          <div class="form-error">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Quantity + avg cost: listed only -->
+      <div id="group-quantity" class="field-group">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group">
+            {{ form.quantity.label(class='form-label') }}
+            {{ form.quantity(class='form-control', placeholder='e.g. 100') }}
+            {% for err in form.quantity.errors %}
+              <div class="form-error">{{ err }}</div>
+            {% endfor %}
+          </div>
+          <div class="form-group">
+            {{ form.avg_cost.label(class='form-label') }}
+            {{ form.avg_cost(class='form-control', placeholder='Optional') }}
+            {% for err in form.avg_cost.errors %}
+              <div class="form-error">{{ err }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual value: non-listed only -->
+      <div id="group-manual" class="field-group">
+        <div class="form-group">
+          {{ form.manual_value.label(class='form-label') }}
+          {{ form.manual_value(class='form-control', placeholder='Current estimated value') }}
+          <div class="text-muted" style="font-size:12px; margin-top:4px;">
+            For liabilities, enter the outstanding debt amount.
+          </div>
+          {% for err in form.manual_value.errors %}
+            <div class="form-error">{{ err }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Currency + Geography -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="form-group">
+          {{ form.currency.label(class='form-label') }}
+          {{ form.currency(class='form-control') }}
+        </div>
+        <div class="form-group" id="group-geo">
+          {{ form.geography.label(class='form-label') }}
+          {{ form.geography(class='form-control', placeholder='e.g. Hong Kong, US') }}
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-group">
+        {{ form.notes.label(class='form-label') }}
+        {{ form.notes(class='form-control', rows=2,
+             placeholder='Optional notes (e.g. valuation date, broker, mortgage details)') }}
+      </div>
+
+      <div class="flex" style="gap:12px; margin-top:4px;">
+        <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
+        <a href="{{ url_for('portfolios.detail', portfolio_id=portfolio.id) }}"
+           class="btn btn-secondary">Cancel</a>
+
+        {% if holding %}
+          <form method="post"
+                action="{{ url_for('portfolios.delete_holding', holding_id=holding.id) }}"
+                style="margin-left:auto;"
+                onsubmit="return confirm('Remove this holding?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+          </form>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const LISTED = new Set(['equity', 'etf', 'bond', 'commodity']);
+
+  function updateFields() {
+    const cls = document.getElementById('asset_class').value;
+    const isListed = LISTED.has(cls);
+
+    document.getElementById('group-listed').classList.toggle('visible', isListed);
+    document.getElementById('group-quantity').classList.toggle('visible', isListed);
+    document.getElementById('group-manual').classList.toggle('visible', !isListed);
+  }
+
+  // Run on page load to set correct state for edit form
+  updateFields();
+</script>
+{% endblock %}

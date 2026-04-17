@@ -1,5 +1,3 @@
-# This file exists for Replit / Gunicorn compatibility.
-# The actual app is defined in the app/ package.
 import os
 from app import create_app
 

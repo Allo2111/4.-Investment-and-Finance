@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Portfolios — Portfolio Engine{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header flex-between">
+    <div class="page-title">Portfolios</div>
+    <a href="{{ url_for('portfolios.new_portfolio') }}" class="btn btn-primary">+ New Portfolio</a>
+  </div>
+
+  {% if portfolios %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th><th>Currency</th><th>Holdings</th><th>Analyses</th>
+          <th>Last Updated</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in portfolios %}
+          <tr>
+            <td>
+              <a href="{{ url_for('portfolios.detail', portfolio_id=p.id) }}"
+                 class="text-accent" style="text-decoration:none; font-weight:600;">
+                {{ p.name }}
+              </a>
+              {% if p.description %}
+                <div class="text-muted" style="font-size:12px;">{{ p.description[:60] }}</div>
+              {% endif %}
+            </td>
+            <td><span class="badge badge-muted">{{ p.base_currency }}</span></td>
+            <td>{{ p.asset_holdings.count() }}</td>
+            <td>{{ p.analysis_runs.count() }}</td>
+            <td class="text-muted">{{ p.updated_at.strftime('%b %d, %Y') }}</td>
+            <td style="text-align:right;">
+              <a href="{{ url_for('portfolios.edit_portfolio', portfolio_id=p.id) }}"
+                 class="btn btn-secondary btn-sm">Edit</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="card" style="text-align:center; padding:48px 20px;">
+      <div style="font-size:40px; margin-bottom:12px; opacity:.4;">📁</div>
+      <div style="font-size:15px; font-weight:600; margin-bottom:8px;">No portfolios yet</div>
+      <a href="{{ url_for('portfolios.new_portfolio') }}" class="btn btn-primary">
+        Create your first portfolio
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
