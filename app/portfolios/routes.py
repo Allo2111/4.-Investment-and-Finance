@@ -40,16 +40,16 @@ def new_portfolio():
         db.session.commit()
         flash(f'Portfolio "{p.name}" created.', 'success')
         return redirect(url_for('portfolios.detail', portfolio_id=p.id))
-    return render_template('portfolios/form.html', form=form, title='New Portfolio')
+    return render_template('portfolios/form.html', form=form, title='New Portfolio', portfolio=None)
 
 
 @portfolios_bp.route('/portfolios/<int:portfolio_id>')
 @login_required
 def detail(portfolio_id):
-    p = _owned_portfolio_or_404(portfolio_id)
+    p        = _owned_portfolio_or_404(portfolio_id)
     holdings = p.asset_holdings.all()
-    runs = p.analysis_runs.limit(10).all()
-    totals = _compute_totals(holdings)
+    runs     = p.analysis_runs.limit(10).all()
+    totals   = _compute_totals(holdings)
     return render_template('portfolios/detail.html',
                            portfolio=p, holdings=holdings, runs=runs, totals=totals)
 
@@ -57,11 +57,11 @@ def detail(portfolio_id):
 @portfolios_bp.route('/portfolios/<int:portfolio_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_portfolio(portfolio_id):
-    p = _owned_portfolio_or_404(portfolio_id)
+    p    = _owned_portfolio_or_404(portfolio_id)
     form = PortfolioForm(obj=p)
     if form.validate_on_submit():
-        p.name = form.name.data
-        p.description = form.description.data
+        p.name          = form.name.data
+        p.description   = form.description.data
         p.base_currency = form.base_currency.data
         db.session.commit()
         flash('Portfolio updated.', 'success')
@@ -79,19 +79,19 @@ def delete_portfolio(portfolio_id):
     return redirect(url_for('portfolios.list_portfolios'))
 
 
-# ── Holdings CRUD (form-based) ─────────────────────────────
+# ── Holdings CRUD ──────────────────────────────────────────
 
 @portfolios_bp.route('/portfolios/<int:portfolio_id>/holdings/new', methods=['GET', 'POST'])
 @login_required
 def add_holding(portfolio_id):
-    p = _owned_portfolio_or_404(portfolio_id)
+    p    = _owned_portfolio_or_404(portfolio_id)
     form = AssetHoldingForm()
 
     if form.validate_on_submit():
         asset_class = form.asset_class.data
-        is_listed = asset_class in LISTED_CLASSES
-        symbol = (form.symbol.data or '').strip().upper() or None
-        name = form.name.data.strip() or symbol or 'Unnamed'
+        is_listed   = asset_class in LISTED_CLASSES
+        symbol      = (form.symbol.data or '').strip().upper() or None
+        name        = form.name.data.strip() or symbol or 'Unnamed'
 
         h = AssetHolding(
             portfolio_id=p.id,
@@ -99,15 +99,21 @@ def add_holding(portfolio_id):
             symbol=symbol,
             name=name,
             is_listed=is_listed,
-            quantity=form.quantity.data if is_listed else None,
-            avg_cost=form.avg_cost.data if is_listed else None,
-            manual_value=form.manual_value.data if not is_listed else None,
+            quantity=form.quantity.data         if is_listed      else None,
+            avg_cost=form.avg_cost.data         if is_listed      else None,
+            manual_value=form.manual_value.data if not is_listed  else None,
             currency=form.currency.data or p.base_currency,
             geography=form.geography.data or None,
             notes=form.notes.data or None,
         )
         db.session.add(h)
         db.session.commit()
+
+        # Auto-fetch current price for listed holdings so value is available immediately.
+        if is_listed and symbol:
+            _fetch_and_store_price(h)
+            db.session.commit()
+
         flash(f'"{name}" added.', 'success')
         return redirect(url_for('portfolios.detail', portfolio_id=p.id))
 
@@ -124,20 +130,27 @@ def edit_holding(holding_id):
     form = AssetHoldingForm(obj=h)
     if form.validate_on_submit():
         asset_class = form.asset_class.data
-        is_listed = asset_class in LISTED_CLASSES
-        symbol = (form.symbol.data or '').strip().upper() or None
-        name = form.name.data.strip() or symbol or 'Unnamed'
+        is_listed   = asset_class in LISTED_CLASSES
+        symbol      = (form.symbol.data or '').strip().upper() or None
+        name        = form.name.data.strip() or symbol or 'Unnamed'
 
-        h.asset_class = asset_class
-        h.is_listed = is_listed
-        h.symbol = symbol
-        h.name = name
-        h.quantity = form.quantity.data if is_listed else None
-        h.avg_cost = form.avg_cost.data if is_listed else None
-        h.manual_value = form.manual_value.data if not is_listed else None
-        h.currency = form.currency.data or p.base_currency
-        h.geography = form.geography.data or None
-        h.notes = form.notes.data or None
+        symbol_changed = (symbol != h.symbol)
+
+        h.asset_class  = asset_class
+        h.is_listed    = is_listed
+        h.symbol       = symbol
+        h.name         = name
+        h.quantity     = form.quantity.data         if is_listed      else None
+        h.avg_cost     = form.avg_cost.data         if is_listed      else None
+        h.manual_value = form.manual_value.data     if not is_listed  else None
+        h.currency     = form.currency.data or p.base_currency
+        h.geography    = form.geography.data or None
+        h.notes        = form.notes.data or None
+
+        # Re-fetch price if the symbol changed or no price is stored yet.
+        if is_listed and symbol and (symbol_changed or not h.current_price):
+            _fetch_and_store_price(h)
+
         db.session.commit()
         flash(f'"{name}" updated.', 'success')
         return redirect(url_for('portfolios.detail', portfolio_id=p.id))
@@ -149,9 +162,9 @@ def edit_holding(holding_id):
 @portfolios_bp.route('/holdings/<int:holding_id>/delete', methods=['POST'])
 @login_required
 def delete_holding(holding_id):
-    h = _owned_holding_or_404(holding_id)
+    h            = _owned_holding_or_404(holding_id)
     portfolio_id = h.portfolio_id
-    name = h.name
+    name         = h.name
     db.session.delete(h)
     db.session.commit()
     flash(f'"{name}" removed.', 'info')
@@ -163,8 +176,7 @@ def delete_holding(holding_id):
 @portfolios_bp.route('/portfolios/<int:portfolio_id>/refresh-prices', methods=['POST'])
 @login_required
 def refresh_prices(portfolio_id):
-    """Fetch latest prices for all listed holdings and update current_price + market_value."""
-    p = _owned_portfolio_or_404(portfolio_id)
+    p      = _owned_portfolio_or_404(portfolio_id)
     listed = [h for h in p.asset_holdings.all() if h.is_listed and h.symbol]
 
     if not listed:
@@ -172,7 +184,7 @@ def refresh_prices(portfolio_id):
 
     from ..analysis.services import fetch_current_prices
     symbols = list({h.symbol for h in listed})
-    prices = fetch_current_prices(symbols)
+    prices  = fetch_current_prices(symbols)
 
     updated = 0
     for h in listed:
@@ -185,34 +197,41 @@ def refresh_prices(portfolio_id):
 
     db.session.commit()
 
-    # Return updated values for the frontend to re-render
-    results = []
-    for h in p.asset_holdings.all():
-        results.append({
-            'id': h.id,
-            'current_price': h.current_price,
-            'effective_value': h.effective_value,
-        })
+    results = [
+        {'id': h.id, 'current_price': h.current_price, 'effective_value': h.effective_value}
+        for h in p.asset_holdings.all()
+    ]
     return jsonify({'updated': updated, 'holdings': results})
 
 
 # ── Helpers ────────────────────────────────────────────────
 
+def _fetch_and_store_price(holding: AssetHolding) -> None:
+    """Fetch the latest price for a single listed holding and update current_price + market_value.
+    Silently skips if yfinance returns nothing (e.g. bad symbol or network issue)."""
+    from ..analysis.services import fetch_current_prices
+    prices = fetch_current_prices([holding.symbol])
+    price  = prices.get(holding.symbol)
+    if price:
+        holding.current_price = price
+        if holding.quantity:
+            holding.market_value = round(holding.quantity * price, 2)
+
+
 def _compute_totals(holdings):
-    """Compute portfolio totals from holdings list."""
-    gross_value = 0.0
-    liability_value = 0.0
+    gross       = 0.0
+    liabilities = 0.0
     for h in holdings:
         v = h.effective_value or 0
         if h.is_liability:
-            liability_value += v
+            liabilities += v
         else:
-            gross_value += v
+            gross += v
     return {
-        'gross': round(gross_value, 2),
-        'liabilities': round(liability_value, 2),
-        'net': round(gross_value - liability_value, 2),
-        'count': len(holdings),
+        'gross':       round(gross, 2),
+        'liabilities': round(liabilities, 2),
+        'net':         round(gross - liabilities, 2),
+        'count':       len(holdings),
     }
 
 
@@ -224,7 +243,7 @@ def _owned_portfolio_or_404(portfolio_id):
 
 
 def _owned_holding_or_404(holding_id):
-    h = AssetHolding.query.get_or_404(holding_id)
+    h = db.get_or_404(AssetHolding, holding_id)
     if h.portfolio.user_id != current_user.id:
         abort(403)
     return h
